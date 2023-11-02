@@ -123,7 +123,7 @@ void inputGrammar(struct Rules ** p) {
     }
 }
 
-    int checkForRecursion(Rules *p) {
+int checkForRecursion(Rules *p) {
         for (int i = 0; i < p->count; ++i) {
             if (p->name[0] == p->production[i][0]) {
                 return 1;
@@ -177,6 +177,133 @@ Rules * removeRecursion(Rules * p) {
     return no_rec;
 }
 
+char *removeDuplicated(char table[]) {
+    char *temp;
+    int k = 0;
+    temp = malloc(strlen(table));
+    for (int i = 0; i < strlen(table); ++i) {
+        int exist = 0;
+        for (int j = i + 1; j < strlen(table); ++j) {
+            if (table[i] == table[j]) {
+                exist = 1;
+            }
+        }
+        if (exist == 0) {
+            temp[k] = table[i];
+            ++k;
+        }
+    }
+    temp[k] = '\0';
+    return temp;
+}
+
+Rules * getRuleByName(Rules * p, char name){
+    while (p != NULL) {
+        if (p->name[0] == name && p->name[1] != '\'') {
+            return p;
+        }
+        p = p->next;
+    }
+    printf("Rule %c does not exist",name);
+    exit(0);
+}
+
+char* removeEpsilon(char * first){
+    int l = 0;
+    for (int i = 0; i < strlen(first); ++i) {
+        if (first[i] == '&') {
+            l++;
+        }
+    }
+    char * temp = malloc(strlen(first));
+    l = 0;
+    for (int i = 0; i < strlen(first); ++i) {
+        if (first[i] != '&') {
+            temp[l] = first[i];
+            l++;
+        }
+    }
+    temp[l] = '\0';
+    return temp;
+}
+
+int epsilonExists(char first[]){
+    for (int i = 0; i < strlen(first); ++i) {
+        if (first[i] == '&') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int checkIfExist(char first[], char pr){
+    int i = 0;
+    while (i < strlen(first)) {
+        if (first[i] == pr) {
+            return 1;
+        }
+        i++;
+    }
+    return 0;
+}
+
+Rules* firstForOneRule(Rules * p, Rules * p2) {
+    if (p->firstCalculator == 0) {
+        int k =0;
+        int max = p->count;
+        for (int i = 0; i < max; ++i) {
+            int l =0;
+            if (isupper(p->production[i][l])) {
+                Rules * x = getRuleByName(p2, p->production[i][l]);
+                Rules * temp = firstForOneRule(x, p2);
+                strcat(p->first,temp->first);
+                while(epsilonExists(temp->first) && isupper(p->production[i][l + 1])) {
+                    l++;
+                    Rules * y = getRuleByName(p2, p->production[i][l]);
+                    Rules * temp2 = firstForOneRule(y, p2);
+                    strcat(p->first,temp2->first);
+                }
+                strcpy(p->first,removeEpsilon(p->first));
+                strcpy(p->first,removeDuplicated(p->first));
+            } else {
+                if (!checkIfExist(p->first,p->production[i][0])) {
+                    p->first[k] = p->production[i][0];
+                    ++k;
+                    p->first[k] = '\0';
+                }
+            }
+        }
+        p->firstCounter = strlen(p->first);
+        p->firstCalculator =1;
+        return p;
+    }
+    return p;
+}
+
+Rules* first(Rules* p ) {
+    Rules * iterator = p;
+    while(iterator!=NULL){
+        iterator = firstForOneRule(iterator,p);
+        iterator = iterator->next;
+    }
+    return p;
+}
+
+void printFirst(Rules* p){
+    while (p != NULL) {
+        printf("first(%s) = {",p->name);
+        for (int i = 0; i < p->firstCounter; ++i) {
+            if (i == p->firstCounter - 1) {
+                printf("%c",p->first[i]);
+            } else {
+                printf("%c,",p->first[i]);
+            }
+        }
+        printf("}\n");
+        p = p->next;
+    }
+
+}
 
 int main()
 {
