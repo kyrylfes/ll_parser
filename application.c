@@ -123,6 +123,20 @@ void inputGrammar(struct Rules ** p) {
     }
 }
 
+void printAllRules(Rules *p) {
+        while (p != NULL) {
+            printf("%s->", p->name);
+            for (int i = 0; i < p->count; ++i) {
+                printf("%s", p->production[i]);
+                if (i < p->count - 1) {
+                    printf("|");
+                }
+            }
+            p = p->next;
+            printf("\n");
+        }
+    }
+
 int checkForRecursion(Rules *p) {
         for (int i = 0; i < p->count; ++i) {
             if (p->name[0] == p->production[i][0]) {
@@ -305,6 +319,16 @@ Rules* first(Rules* p ) {
     return p;
 }
 
+Rules* nameToRule(Rules* p , char* name){
+    while (p != NULL) {
+        if (strcmp(name,p->name) == 0) {
+            return p;
+        }
+        p = p->next;
+    }
+    return NULL;
+}
+
 void printFirst(Rules* p){
     while (p != NULL) {
         printf("first(%s) = {",p->name);
@@ -404,17 +428,6 @@ Rules* follow(Rules* p) {
     return p;
 }
 
-Rules* nameToRule(Rules* p, char* name) {
-    while (p != NULL) {
-        if (strcmp(name, p->name) == 0) {
-            return p;
-        }
-        p = p->next;
-    }
-    return NULL;
-}
-
-
 void printFollow(Rules* p) {
     while (p != NULL) {
         printf("follow(%s) = {", p->name);
@@ -478,6 +491,7 @@ void insertLL1(LL1 ** table,LL1 * temp){
         x->next = temp;
     }
 }
+
 LL1 * generateLL1Table(Rules * p, Rules * h){
     LL1 * table = NULL;
     while (p!=NULL) {
@@ -511,8 +525,138 @@ void printLL1(LL1 * l) {
     }
 }
 
+void push(struct Stack ** p, char * x ){
+    struct Stack * temp = malloc(sizeof(Stack));
+    strcpy(temp->value,x);
+    if (*p == NULL) {
+        temp->next = NULL;
+        *p = temp;
+    } else {
+        temp->next = *p;
+        (*p)= temp;
+    }
+}
+
+void pop(Stack **p) {
+    Stack * temp = *p;
+    (*p) = (*p)->next;
+    free(temp);
+}
+
+char* peek(Stack * p) {
+    if (p != NULL) {
+        return p->value;
+    }
+    return NULL;
+}
+
+void printStack(Stack * p){
+    if (p == NULL)
+        return;
+    printf("\n%s\n_",p->value);
+    printStack(p->next);
+}
+
+char * findInLL1(LL1 * table,char * stack_peek , char text_char) {
+    while (table != NULL) {
+        if (strcmp(table->nonTerminal, stack_peek) == 0 && table->terminal == text_char) {
+            return table->result;
+        }
+        table = table->next;
+    }
+    return "0";
+}
+
+int checkIfValid(LL1 * table , char * text, Rules * prod){
+    Stack * p1 =NULL;
+    int i = 0;
+    strcat(text,"$");
+    push(&p1,"$");
+    push(&p1,prod->name);
+    while (i<strlen(text)) {
+        char * check = peek(p1);
+        if (check[0] == text[i]) {
+            i++;
+            if (check[0] == '$')
+                return -1;
+            pop(&p1);
+        } else {
+            char * x = findInLL1(table,peek(p1),text[i]);
+            if (strcmp(x,"0")==0) {
+                return i;
+            }
+            if (strcmp(x,"&") == 0) {
+                pop(&p1);
+            } else if(strlen(x) > 1) {
+                int d = strlen(x)-1;
+                pop(&p1);
+                while (d >= 0) {
+                    if (x[d] =='\'') {
+                        char * y = malloc(sizeof(x));
+                        y[0] = x[d-1];
+                        y[1] = x[d];
+                        y[2] = '\0';
+                        push(&p1,y);
+                        d=d-2;
+                    } else {
+                        char *f = malloc(2);
+                        f[0] = x[d];
+                        f[1] = '\0';
+                        push(&p1,f);
+                        d--;
+                    }
+                }
+            } else {
+                pop(&p1);
+                push(&p1,x);
+            }
+        }
+    }
+    return strlen(text);
+}
+
+
 int main()
 {
+    char text[WORD];
+    Rules * productions = NULL;
+    Rules * productionsNoRecursion = NULL;
+    LL1 * table = NULL;
+
+    printf("Enter your grammar: \n");
+    inputGrammar(&productions);
+    printf("\n");
+    printAllRules(productions);
+    productionsNoRecursion = removeRecursion(productions);
+    printf("\n");
+    printAllRules(productionsNoRecursion);
+    productionsNoRecursion->follow[0] ='$';
+    productionsNoRecursion->follow[1] = '\0';
+    productionsNoRecursion->followCounter = 1;
+    productionsNoRecursion = first(productionsNoRecursion);
+    printFirst(productionsNoRecursion);
+    productionsNoRecursion = follow(productionsNoRecursion);
+    printf("\n");
+    printFollow(productionsNoRecursion);
+    table = generateLL1Table(productionsNoRecursion, productionsNoRecursion);
+    printf("\n");
+    printf("------ LL1 table ------ \n");
+
+    printLL1(table);
+
+    while (1) {
+        printf("Enter a word for verification \n");
+        scanf("%s",text);
+        if (strcmp(text,".") == 0)
+            break;
+
+        int verificationCode = checkIfValid(table, text, productionsNoRecursion);
+        if (verificationCode == -1) {
+            printf("%s accepted \n", text);
+        } else {
+            printf("%s rejected by syntax error at symbol: %d \n", text, verificationCode + 1);
+        }
+    }
 
     return 0;
 }
