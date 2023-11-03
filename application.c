@@ -431,6 +431,86 @@ void printFollow(Rules* p) {
     }
 }
 
+int find(Rules* p, Rules* h, char c) {
+    for (int i = 0; i < p->count; ++i) {
+        int j = 0;
+        while (j < strlen(p->production[i])) {
+            if (p->production[i][j] == c){
+                return i;
+            }
+            if (isupper(p->production[i][j])){
+                int k;
+                if (p->production[i][j+1] != '\''){
+                    k = find(getRuleByName(h, p->production[i][j]), h, c);
+                    ++j;
+                } else {
+                    char x[3];
+                    x[0] = p->production[i][j];
+                    x[1] = '\'';
+                    k  = find(nameToRule(h,x),h,c);
+                    j = j+2;
+                }
+                if (k == 2) {
+                    continue;
+                } else {
+                    return i;
+                }
+            } else if(p->production[i][j] == c){
+                return 1;
+            } else if(p->production[i][j] == '&'){
+                return 2;
+            }
+            break;
+        }
+    }
+    return 0;
+}
+
+void insertLL1(LL1 ** table,LL1 * temp){
+    temp->next = NULL;
+    if (*table == NULL) {
+        *table = temp;
+    } else {
+        LL1 * x = (*table);
+        while (x->next != NULL) {
+            x = x->next;
+        }
+        x->next = temp;
+    }
+}
+LL1 * generateLL1Table(Rules * p, Rules * h){
+    LL1 * table = NULL;
+    while (p!=NULL) {
+        for (int i = 0; i < p->firstCounter; ++i) {
+            if (p->first[i] == '&') {
+                for (int j = 0; j < p->followCounter; ++j) {
+                    LL1 * temp = malloc(sizeof(LL1));
+                    temp->result[0] ='&';
+                    strcpy(temp->nonTerminal, p->name);
+                    temp->terminal = p->follow[j];
+                    insertLL1(&table,temp);
+                }
+            } else {
+                int k= find(p,h,p->first[i]);
+                LL1 * temp = malloc(sizeof(LL1));
+                strcpy(temp->result ,p->production[k]);
+                strcpy(temp->nonTerminal, p->name);
+                temp->terminal = p->first[i];
+                insertLL1(&table,temp);
+            }
+        }
+        p = p->next;
+    }
+    return table;
+}
+
+void printLL1(LL1 * l) {
+    while (l!= NULL) {
+        printf("( %s,%c ) -> %s \n", l->nonTerminal, l->terminal, l->result);
+        l = l->next;
+    }
+}
+
 int main()
 {
 
